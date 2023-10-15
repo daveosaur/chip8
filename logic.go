@@ -23,23 +23,19 @@ func (s *State) push(ins uint16) error {
 	if s.SP >= MAX_STACK {
 		return tooStacked
 	}
-	if s.Stack[s.SP] != 0 {
-		s.SP++
-	}
 	s.Stack[s.SP] = ins
+	s.SP++
 
 	return nil
 }
 
 func (s *State) pop() (uint16, error) {
-	if s.SP < 0 {
+	if s.SP <= 0 {
 		return 0, noStack
 	}
+	s.SP--
 	popped := s.Stack[s.SP]
 	s.Stack[s.SP] = 0
-	if s.SP > 0 {
-		s.SP--
-	}
 	return popped, nil
 }
 
@@ -82,7 +78,6 @@ func (s *State) decodeInstruction() error {
 				return err
 			}
 			s.PC = ret
-			return nil
 		}
 	case 1:
 		// fmt.Println("jump nnn")
