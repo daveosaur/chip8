@@ -1,10 +1,47 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 )
 
-func (s *State) decodeInstruction(inst uint16) {
+const (
+	MAX_STACK = 16
+)
+
+// global things. errors?
+var (
+	tooStacked = errors.New("overflow stack!")
+	noStack    = errors.New("underflow stack!!!")
+)
+
+func (s *State) push(ins uint16) error {
+	if s.SP >= MAX_STACK {
+		return tooStacked
+	}
+	if s.Stack[s.SP] != 0 {
+		s.SP++
+	}
+	s.Stack[s.SP] = ins
+
+	return nil
+}
+
+func (s *State) pop() (uint16, error) {
+	if s.SP < 0 {
+		return 0, noStack
+	}
+	popped := s.Stack[s.SP]
+	s.Stack[s.SP] = 0
+	if s.SP > 0 {
+		s.SP--
+	}
+	return popped, nil
+}
+
+func (s *State) decodeInstruction() (func(), error) {
+	inst := uint16(s.Mem[s.PC])<<8 | uint16(s.Mem[s.PC+1])
+
 	a := uint8(inst & 0xF000 >> 12)
 	b := uint8(inst & 0x0F00 >> 8)
 	c := uint8(inst & 0x00F0 >> 4)
@@ -13,7 +50,7 @@ func (s *State) decodeInstruction(inst uint16) {
 	_ = b //TODO: remove
 
 	switch a {
-	case 0x0:
+	case 0:
 		switch d {
 		case 0x0:
 			fmt.Println("clear")
@@ -107,4 +144,7 @@ func (s *State) decodeInstruction(inst uint16) {
 
 	}
 
+	return func() {
+		fmt.Println(a, b, c, d)
+	}, nil
 }

@@ -19,7 +19,7 @@ const (
 
 type State struct {
 	Reg   [16]byte   //general registers
-	I     uint16     //16bit register
+	Ireg  uint16     //16bit register
 	Dreg  uint8      //delay register
 	Sreg  uint8      //sound register
 	PC    uint16     //program counter
@@ -28,18 +28,22 @@ type State struct {
 	Mem   [4096]byte //memory!
 }
 
-// types
 // funcs
 func initState() *State {
-	return &State{}
+	return &State{
+		PC: 512, //set program counter to start of program memory
+	}
 }
 
-func (s *State) update() {
+func (s *State) update() error {
+	f, err := s.decodeInstruction()
+	if err != nil {
+		return err
+	}
+	f()
+	s.PC += 2
 
-}
-
-func (s *State) draw() {
-
+	return nil
 }
 
 func main() {
@@ -47,19 +51,25 @@ func main() {
 	rl.InitWindow(winX, winY, "chip8")
 
 	s := initState()
-	rom, err := os.ReadFile("roms/logo.ch8")
+	s.loadChars()
+	rom, err := os.ReadFile("roms/particle.ch8")
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Printf("%b", rom)
-	s.decodeInstruction(uint16(rom[0])<<8 | uint16(rom[1]))
-
-	os.Exit(0)
+	//copy the loaded rom into the emulator
+	romLength := copy(s.Mem[512:], rom)
+	i := 0
 
 	for !rl.WindowShouldClose() {
-		s.update()
-		s.draw()
+		err := s.update()
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("did instruction", i)
+		i += 2
+		if i > romLength {
+			os.Exit(0)
+		}
 	}
 
 }
