@@ -202,20 +202,31 @@ func (s *State) decodeInstruction() error {
 		s.Reg[b] = num & kk
 	case 0xD:
 		//draw/collision thing
-		//TODO:
+		//TODO: add the carry flag to s.Reg[15]
+		s.Reg[15] = 0
 		xPos := s.Reg[b]
 		yPos := s.Reg[c]
 		for i := 0; i < int(d); i++ {
 			curByte := s.Mem[s.Ireg+uint16(i)]
 			rem := xPos % 8
-			pos := (yPos+byte(i))*8 + rem
+			pos := (yPos+byte(i))*8 + (xPos / 8)
 			if rem == 0 { //does it line up on the byte and make things easy??
 				s.Vmem[pos] = s.Vmem[pos] ^ curByte
+				if s.Reg[15] == 0 { //check if collision
+					if (s.Vmem[pos] & curByte) != 0 {
+						s.Reg[15] = 1
+					}
+				}
 			} else { //nope
 				nextByte := curByte << (8 - rem)
 				curByte = curByte >> rem
 				s.Vmem[pos] = s.Vmem[pos] ^ curByte
 				s.Vmem[pos+1] = s.Vmem[pos+1] ^ nextByte
+				if s.Reg[15] == 0 { //check if collision
+					if (s.Vmem[pos]&curByte) != 0 || (s.Vmem[pos+1]&nextByte) != 0 {
+						s.Reg[15] = 1
+					}
+				}
 			}
 		}
 
