@@ -20,7 +20,7 @@ var _F = []byte{0xF0, 0x80, 0xF0, 0x80, 0x80}
 
 var chars = [][]byte{_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _A, _B, _C, _D, _E, _F}
 
-func (s *State) loadChars() {
+func loadChars(s *State) {
 	for i, char := range chars {
 		copy(s.Mem[(i*5):], char)
 	}

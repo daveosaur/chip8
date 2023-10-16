@@ -139,21 +139,25 @@ func (s *State) decodeInstruction() error {
 			//vx = vx + vy
 			//if result > 255, vf = 1, else 0 (carry bit)
 			val := int(s.Reg[b]) + int(s.Reg[c])
+			s.Reg[b] = uint8(val)
 			if val > 255 {
 				s.Reg[15] = 1
 			} else {
 				s.Reg[15] = 0
 			}
-			s.Reg[b] = uint8(val)
 		case 5:
 			//vx = vx - vy
 			//if vx > vy, vf = 1. else 0
+			set := false
 			if s.Reg[b] > s.Reg[c] {
+				set = true
+			}
+			s.Reg[b] -= s.Reg[c]
+			if set {
 				s.Reg[15] = 1
 			} else {
 				s.Reg[15] = 0
 			}
-			s.Reg[b] -= s.Reg[c]
 		case 6:
 			//vx = vx >> 1
 			//if least-significant bit of vx is 1, then vf = 1. else 0.
@@ -196,8 +200,8 @@ func (s *State) decodeInstruction() error {
 		kk := (c << 4) | d
 		s.Reg[b] = num & kk
 	case 0xD:
-		//draw/collision thing
-		//TODO: add the carry flag to s.Reg[15]
+		//draw to video memory
+		//also sets regF to 1 if a collision is detected
 		s.Reg[15] = 0
 		xPos := s.Reg[b]
 		yPos := s.Reg[c]
@@ -207,10 +211,8 @@ func (s *State) decodeInstruction() error {
 			pos := (yPos+byte(i))*8 + (xPos / 8)
 			if rem == 0 { //does it line up on the byte and make things easy??
 				s.Vmem[pos] = s.Vmem[pos] ^ curByte
-				if s.Reg[15] == 0 { //check if collision
-					if (s.Vmem[pos] & curByte) != 0 {
-						s.Reg[15] = 1
-					}
+				if s.Reg[15] == 0 && (s.Vmem[pos]&curByte) != 0 { //check if collision
+					s.Reg[15] = 1
 				}
 			} else { //nope
 				nextByte := curByte << (8 - rem)
@@ -224,15 +226,16 @@ func (s *State) decodeInstruction() error {
 				}
 			}
 		}
-
 	case 0xE:
 		switch [2]byte{c, d} {
 		case [2]byte{0x9, 0xE}:
 			//skip VX
 			//skip instruction if key of value vx is pressed
+			//TODO
 		case [2]byte{0xA, 0x1}:
 			//skip !VX
 			//skip instruction if key of value vx is not pressed
+			//TODO
 		}
 	case 0xF:
 		switch [2]byte{c, d} {
@@ -269,12 +272,12 @@ func (s *State) decodeInstruction() error {
 			s.Mem[s.Ireg+2] = num
 		case [2]byte{0x5, 0x5}:
 			//copy values v0 - vx to memory location I
-			for i := 0; i < int(b); i++ {
+			for i := 0; i <= int(b); i++ {
 				s.Mem[int(s.Ireg)+i] = s.Reg[i]
 			}
 		case [2]byte{0x6, 0x5}:
 			//read values from I into registers v0 - vx
-			for i := 0; i < int(b); i++ {
+			for i := 0; i <= int(b); i++ {
 				s.Reg[i] = s.Mem[int(s.Ireg)+i]
 			}
 		}
