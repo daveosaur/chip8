@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
 	// rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -17,25 +19,26 @@ var (
 	tooStacked     = errors.New("overflow stack!")
 	noStack        = errors.New("underflow stack!!!")
 	badInstruction = errors.New("invalid instruction??")
+	noKeyPressed   = errors.New("no key is down")
 )
 
 func (s *State) push(ins uint16) error {
 	if s.SP >= MAX_STACK {
 		return tooStacked
 	}
-	s.Stack[s.SP] = ins
 	s.SP++
+	s.Stack[s.SP] = ins
 
 	return nil
 }
 
 func (s *State) pop() (uint16, error) {
-	if s.SP <= 0 {
+	if s.SP < 0 {
 		return 0, noStack
 	}
-	s.SP--
 	popped := s.Stack[s.SP]
 	s.Stack[s.SP] = 0
+	s.SP--
 	return popped, nil
 }
 
@@ -139,46 +142,43 @@ func (s *State) decodeInstruction() error {
 			//vx = vx + vy
 			//if result > 255, vf = 1, else 0 (carry bit)
 			val := int(s.Reg[b]) + int(s.Reg[c])
+			carry := val > 255
 			s.Reg[b] = uint8(val)
-			if val > 255 {
+			s.Reg[15] = 0
+			if carry {
 				s.Reg[15] = 1
-			} else {
-				s.Reg[15] = 0
 			}
 		case 5:
 			//vx = vx - vy
 			//if vx > vy, vf = 1. else 0
-			set := false
-			if s.Reg[b] > s.Reg[c] {
-				set = true
-			}
+			carry := (s.Reg[b] > s.Reg[c])
 			s.Reg[b] -= s.Reg[c]
-			if set {
+			s.Reg[15] = 0
+			if carry {
 				s.Reg[15] = 1
-			} else {
-				s.Reg[15] = 0
 			}
 		case 6:
 			//vx = vx >> 1
 			//if least-significant bit of vx is 1, then vf = 1. else 0.
 			check := s.Reg[b] & 1 //pull the least significant bit
-			s.Reg[15] = check
 			s.Reg[b] = s.Reg[b] >> 1
+			s.Reg[15] = check
 		case 7:
 			//vx = vy - vx
 			//if vy > vx, vf = 1. else 0.
-			if s.Reg[c] > s.Reg[b] {
-				s.Reg[15] = 1
-			} else {
-				s.Reg[15] = 0
-			}
+
+			carry := (s.Reg[c] > s.Reg[b])
 			s.Reg[b] = s.Reg[c] - s.Reg[b]
+			s.Reg[15] = 0
+			if carry {
+				s.Reg[15] = 1
+			}
 		case 0xE:
 			//vx = vx << 1
 			//if most significant bit of fx is 1, then fv = 1. else 0.
 			check := (s.Reg[b] & 128) >> 7 //pull most significant bit
-			s.Reg[15] = check
 			s.Reg[b] = s.Reg[b] << 1
+			s.Reg[15] = check
 		}
 	case 9:
 		//skip next instruction if vx != vy
@@ -198,7 +198,7 @@ func (s *State) decodeInstruction() error {
 		//set vx random byte & kk
 		num := uint8(rand.Int() % 256)
 		kk := (c << 4) | d
-		s.Reg[b] = num & kk
+		s.Reg[b] = kk & num
 	case 0xD:
 		//draw to video memory
 		//also sets regF to 1 if a collision is detected
@@ -231,11 +231,16 @@ func (s *State) decodeInstruction() error {
 		case [2]byte{0x9, 0xE}:
 			//skip VX
 			//skip instruction if key of value vx is pressed
-			//TODO
+			if s.Inp == s.Reg[b] {
+				s.increment()
+			}
 		case [2]byte{0xA, 0x1}:
 			//skip !VX
 			//skip instruction if key of value vx is not pressed
-			//TODO
+			if s.Inp != s.Reg[b] {
+				s.increment()
+			}
+
 		}
 	case 0xF:
 		switch [2]byte{c, d} {
@@ -245,7 +250,10 @@ func (s *State) decodeInstruction() error {
 		case [2]byte{0x0, 0xA}:
 			//wait for key press, store in VX
 			//full breakpoint
-			//TODO
+			if s.Inp == 100 {
+				return nil
+			}
+			s.Reg[b] = s.Inp
 		case [2]byte{0x1, 0x5}:
 			//DT = vx
 			s.Dreg = s.Reg[b]
@@ -296,4 +304,44 @@ func (s *State) randomizeVmem() {
 	for i := range s.Vmem {
 		s.Vmem[i] = uint8(rand.Int() % 256)
 	}
+}
+
+func getInput() byte {
+	switch {
+	case rl.IsKeyDown(rl.KeyZero):
+		return 0
+	case rl.IsKeyDown(rl.KeyOne):
+		return 1
+	case rl.IsKeyDown(rl.KeyTwo):
+		return 2
+	case rl.IsKeyDown(rl.KeyThree):
+		return 3
+	case rl.IsKeyDown(rl.KeyFour):
+		return 4
+	case rl.IsKeyDown(rl.KeyFive):
+		return 5
+	case rl.IsKeyDown(rl.KeySix):
+		return 6
+	case rl.IsKeyDown(rl.KeySeven):
+		return 7
+	case rl.IsKeyDown(rl.KeyEight):
+		return 8
+	case rl.IsKeyDown(rl.KeyNine):
+		return 9
+	//keys qweasd == abcdef
+	case rl.IsKeyDown(rl.KeyQ):
+		return 10
+	case rl.IsKeyDown(rl.KeyW):
+		return 11
+	case rl.IsKeyDown(rl.KeyE):
+		return 12
+	case rl.IsKeyDown(rl.KeyA):
+		return 13
+	case rl.IsKeyDown(rl.KeyS):
+		return 14
+	case rl.IsKeyDown(rl.KeyD):
+		return 15
+	}
+	//this is just going to be the value for no key down i guess :)
+	return 100
 }

@@ -27,6 +27,7 @@ type State struct {
 	Stack [16]uint16 //the stack!
 	Mem   [4096]byte //memory!
 	Vmem  [256]byte  //vram!
+	Inp   byte       //current input!
 }
 
 // funcs
@@ -82,14 +83,21 @@ func main() {
 	rl.SetTargetFPS(60)
 	rl.InitWindow(winX, winY, "chip8")
 
-	s, err := initState("roms/4-flags.ch8")
+	// s, err := initState("roms/tests/6-keypad.ch8")
+	// s, err := initState("roms/tests/3-corax+.ch8")
+	s, err := initState("roms/tests/4-flags.ch8")
+	// s, err := initState("roms/tests/5-quirks.ch8")
+	// s, err := initState("roms/framed2.ch8")
 	if err != nil {
 		panic(err)
 	}
 
 	for !rl.WindowShouldClose() {
-		if err := s.update(); err != nil {
-			panic(err)
+		for i := 0; i < 4; i++ {
+			s.Inp = getInput()
+			if err := s.update(); err != nil {
+				panic(err)
+			}
 		}
 		if err := s.draw(); err != nil {
 			panic(err)
